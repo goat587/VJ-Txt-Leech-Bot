@@ -98,3 +98,6 @@ async def upload(bot: Client, m: Message):
         await m.reply_text(f"Error: {str(e)}")
     finally:
         os.remove(file_path)
+
+
+bot.run()
