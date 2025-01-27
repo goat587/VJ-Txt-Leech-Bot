@@ -6,11 +6,11 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.errors import FloodWait, Timeout
 
-# Configuration (Update these with your actual values)
+# Configuration - Replace with your actual credentials
 API_ID = 22696222
 API_HASH = "1b4cdb255f37262200981dbbf87a1fa0"
 BOT_TOKEN = "7897731857:AAG6GtiqGXlxn3NPVwlSJL713wlTFSnIwW8"
-MAX_FILE_SIZE = 2000 * 1024 * 1024  # 2GB (Telegram's max file size)
+MAX_FILE_SIZE = 2000 * 1024 * 1024  # 2GB
 
 bot = Client(
     "bot",
@@ -20,17 +20,14 @@ bot = Client(
 )
 
 async def run_command(command):
-    """Execute shell commands asynchronously with error handling"""
-    try:
-        process = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        return stdout.decode(), stderr.decode(), process.returncode
-    except Exception as e:
-        return "", str(e), 1
+    """Execute shell commands asynchronously"""
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+    return stdout.decode(), stderr.decode(), process.returncode
 
 async def download_hls(url: str, output_name: str):
     """Download HLS stream with optimized parameters"""
@@ -46,7 +43,7 @@ async def download_hls(url: str, output_name: str):
 async def safe_delete(file_path: str):
     """Safely delete files with error handling"""
     try:
-        if os.path.exists(file_path):
+        if file_path and os.path.exists(file_path):
             os.remove(file_path)
     except Exception as e:
         print(f"Error deleting file: {e}")
@@ -67,6 +64,8 @@ async def stop_handler(client: Client, message: Message):
 
 @bot.on_message(filters.command(["upload"]))
 async def upload_handler(client: Client, message: Message):
+    video_name = None
+    pdf_name = None
     try:
         # Step 1: Get video URL
         prompt = await message.reply_text("📥 Send video URL (HLS/M3U8 supported) or /skip")
@@ -89,18 +88,15 @@ async def upload_handler(client: Client, message: Message):
         await prompt.delete()
         await batch_msg.delete()
 
-        # Validate input
         if not (video_url or pdf_url):
             await message.reply_text("❌ Please provide at least one URL!")
             return
 
         # Process Video
-        video_name, pdf_name = None, None
         if video_url:
             video_name = f"{batch_name}_video.mp4"
             msg = await message.reply_text(f"⏬ Downloading video...\nURL: {video_url[:50]}...")
 
-            # Download using yt-dlp
             stdout, stderr, returncode = await download_hls(video_url, video_name)
             
             if returncode != 0 or not os.path.exists(video_name):
@@ -108,14 +104,12 @@ async def upload_handler(client: Client, message: Message):
                 await safe_delete(video_name)
                 return
 
-            # Check file size
             file_size = os.path.getsize(video_name)
             if file_size > MAX_FILE_SIZE:
                 await msg.edit_text(f"❌ File too large ({file_size//1024//1024}MB > 2000MB)")
                 await safe_delete(video_name)
                 return
 
-            # Upload video
             await msg.edit_text("📤 Uploading video...")
             await client.send_video(
                 chat_id=message.chat.id,
@@ -127,6 +121,7 @@ async def upload_handler(client: Client, message: Message):
                 )
             )
             await safe_delete(video_name)
+            video_name = None  # Mark as cleaned up
 
         # Process PDF
         if pdf_url:
@@ -147,7 +142,6 @@ async def upload_handler(client: Client, message: Message):
                 await safe_delete(pdf_name)
                 return
 
-            # Upload PDF
             await msg.edit_text("📤 Uploading PDF...")
             await client.send_document(
                 chat_id=message.chat.id,
@@ -158,6 +152,7 @@ async def upload_handler(client: Client, message: Message):
                 )
             )
             await safe_delete(pdf_name)
+            pdf_name = None  # Mark as cleaned up
 
         await message.reply_text("✅ All files processed successfully! 🚀")
 
@@ -166,6 +161,7 @@ async def upload_handler(client: Client, message: Message):
     except Exception as e:
         await message.reply_text(f"❌ Critical error: {str(e)}")
     finally:
+        # Final cleanup with null checks
         await safe_delete(video_name)
         await safe_delete(pdf_name)
 
