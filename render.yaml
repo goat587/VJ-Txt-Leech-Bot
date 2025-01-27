@@ -1,0 +1,13 @@
+services:
+  - type: background-worker
+    name: telegram-bot
+    env: python
+    build:
+      dockerfile: Dockerfile
+    envVars:
+      - key: API_ID
+        value: YOUR_API_ID
+      - key: API_HASH
+        value: YOUR_API_HASH
+      - key: BOT_TOKEN
+        value: YOUR_BOT_TOKEN
