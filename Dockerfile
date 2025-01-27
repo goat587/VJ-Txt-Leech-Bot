@@ -1,11 +1,15 @@
 FROM python:3.10-slim
 
-WORKDIR /app/
+# Install system dependencies
+RUN apt-get update && apt-get install -y ffmpeg
+
+WORKDIR /app
 COPY requirements.txt .
 
+# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --requirement requirements.txt
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD gunicorn app:app & python3 main.py
+CMD ["python3", "main.py"]  # Run ONLY the bot
