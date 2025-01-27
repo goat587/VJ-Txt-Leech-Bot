@@ -12,4 +12,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY . .
 
-CMD ["python3", "main.py"]  # Run ONLY the bot
+# Run the bot directly
+CMD ["python3", "main.py"]
