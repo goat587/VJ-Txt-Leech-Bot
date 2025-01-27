@@ -12,9 +12,9 @@ from pyrogram.errors import FloodWait
 from pyrogram.errors.exceptions.bad_request_400 import StickerEmojiInvalid
 
 # Replace these with your actual API credentials
-API_ID = "your_api_id"
-API_HASH = "your_api_hash"
-BOT_TOKEN = "your_bot_token"
+API_ID = 22696222
+API_HASH = "1b4cdb255f37262200981dbbf87a1fa0"
+BOT_TOKEN = "7897731857:AAG6GtiqGXlxn3NPVwlSJL713wlTFSnIwW8"
 
 bot = Client(
     "bot",
