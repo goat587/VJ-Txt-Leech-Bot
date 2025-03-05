@@ -50,21 +50,21 @@ async def upload(bot: Client, m: Message):
     path = f"./downloads/{m.chat.id}"
 
     try:
-       with open(x, "r") as f:
-           content = f.read()
-       content = content.split("\n")
-       links = []
-       for i in content:
-           if "Video URL:" in i or "PDF URL:" in i or "Class Sheets PDF:" in i or "Reading List:" in i:
-               links.append(i.split(":", 1)[1].strip())
-       os.remove(x)
+        with open(x, "r") as f:
+            content = f.read()
+        os.remove(x)
     except:
-           await m.reply_text("**Invalid file input.**")
-           os.remove(x)
-           return
-    
-   
-    await editable.edit(f"**𝕋ᴏᴛᴀʟ ʟɪɴᴋ𝕤 ғᴏᴜɴᴅ ᴀʀᴇ🔗🔗** **{len(links)}**\n\n**𝕊ᴇɴᴅ 𝔽ʀᴏᴍ ᴡʜᴇʀᴇ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴɪᴛɪᴀʟ ɪ𝕤** **1**")
+        await m.reply_text("**Invalid file input.**")
+        os.remove(x)
+        return
+
+    # Extract all URLs from the .txt file
+    urls = re.findall(r'(https?://[^\s]+)', content)
+    if not urls:
+        await m.reply_text("**No URLs found in the file.**")
+        return
+
+    await editable.edit(f"**𝕋ᴏᴛᴀʟ ʟɪɴᴋ𝕤 ғᴏᴜɴᴅ ᴀʀᴇ🔗🔗** **{len(urls)}**\n\n**𝕊ᴇɴᴅ 𝔽ʀᴏᴍ ᴡʜᴇʀᴇ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴɪᴛɪᴀʟ ɪ𝕤** **1**")
     input0: Message = await bot.listen(editable.chat.id)
     raw_text = input0.text
     await input0.delete(True)
@@ -73,7 +73,6 @@ async def upload(bot: Client, m: Message):
     input1: Message = await bot.listen(editable.chat.id)
     raw_text0 = input1.text
     await input1.delete(True)
-    
 
     await editable.edit("**𝔼ɴᴛᴇʀ ʀᴇ𝕤ᴏʟᴜᴛɪᴏɴ📸**\n144,240,360,480,720,1080 please choose quality")
     input2: Message = await bot.listen(editable.chat.id)
@@ -91,25 +90,23 @@ async def upload(bot: Client, m: Message):
         elif raw_text2 == "720":
             res = "1280x720"
         elif raw_text2 == "1080":
-            res = "1920x1080" 
-        else: 
+            res = "1920x1080"
+        else:
             res = "UN"
     except Exception:
-            res = "UN"
-    
-    
+        res = "UN"
 
     await editable.edit("Now Enter A Caption to add caption on your uploaded file")
     input3: Message = await bot.listen(editable.chat.id)
     raw_text3 = input3.text
     await input3.delete(True)
-    highlighter  = f"️ ⁪⁬⁮⁮⁮"
+    highlighter = f"️ ⁪⁬⁮⁮⁮"
     if raw_text3 == 'Robin':
-        MR = highlighter 
+        MR = highlighter
     else:
         MR = raw_text3
-   
-    await editable.edit("Now send the Thumb url/nEg » https://graph.org/file/ce1723991756e48c35aa1.jpg \n Or if don't want thumbnail send = no")
+
+    await editable.edit("Now send the Thumb url\nEg » https://graph.org/file/ce1723991756e48c35aa1.jpg \n Or if don't want thumbnail send = no")
     input6 = message = await bot.listen(editable.chat.id)
     raw_text6 = input6.text
     await input6.delete(True)
@@ -122,19 +119,18 @@ async def upload(bot: Client, m: Message):
     else:
         thumb == "no"
 
-    if len(links) == 1:
+    if len(urls) == 1:
         count = 1
     else:
         count = int(raw_text)
 
     try:
-        for i in range(count - 1, len(links)):
+        for i in range(count - 1, len(urls)):
+            url = urls[i]
 
-            url = links[i]
-
-            if "Video URL:" in url:
-                url = url.replace("Video URL:", "").strip()
-                name1 = "Video_" + str(count)
+            if ".m3u8" in url:
+                # Handle .m3u8 URLs (video)
+                name1 = f"Video_{str(count).zfill(3)}"
                 name = f'{str(count).zfill(3)}) {name1[:60]}'
                 ytf = f"b[height<={raw_text2}]/bv[height<={raw_text2}]+ba/b/bv+ba"
                 cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
@@ -148,37 +144,25 @@ async def upload(bot: Client, m: Message):
                 count += 1
                 time.sleep(1)
 
-            elif "PDF URL:" in url or "Class Sheets PDF:" in url or "Reading List:" in url:
-                url = url.replace("PDF URL:", "").replace("Class Sheets PDF:", "").replace("Reading List:", "").strip()
-                name1 = "PDF_" + str(count)
+            elif ".pdf" in url:
+                # Handle PDF URLs
+                name1 = f"PDF_{str(count).zfill(3)}"
                 name = f'{str(count).zfill(3)}) {name1[:60]}'
                 cc1 = f'**[📁] Pdf_ID:** {str(count).zfill(3)}. {name1}{MR}.pdf \n**𝔹ᴀᴛᴄʜ** » **{raw_text0}**'
-                if "drive" in url:
-                    try:
-                        ka = await helper.download(url, name)
-                        copy = await bot.send_document(chat_id=m.chat.id,document=ka, caption=cc1)
-                        count+=1
-                        os.remove(ka)
-                        time.sleep(1)
-                    except FloodWait as e:
-                        await m.reply_text(str(e))
-                        time.sleep(e.x)
-                        continue
-                else:
-                    try:
-                        cmd = f'yt-dlp -o "{name}.pdf" "{url}"'
-                        download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                        os.system(download_cmd)
-                        copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                        count += 1
-                        os.remove(f'{name}.pdf')
-                    except FloodWait as e:
-                        await m.reply_text(str(e))
-                        time.sleep(e.x)
-                        continue
+                try:
+                    cmd = f'yt-dlp -o "{name}.pdf" "{url}"'
+                    download_cmd = f"{cmd} -R 25 --fragment-retries 25"
+                    os.system(download_cmd)
+                    copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                    count += 1
+                    os.remove(f'{name}.pdf')
+                except FloodWait as e:
+                    await m.reply_text(str(e))
+                    time.sleep(e.x)
+                    continue
 
     except Exception as e:
-        await m.reply_text(e)
+        await m.reply_text(f"**Error:** {str(e)}")
     await m.reply_text("**𝔻ᴏɴᴇ 𝔹ᴏ𝕤𝕤😎**")
 
 
