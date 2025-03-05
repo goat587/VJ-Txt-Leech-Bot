@@ -1,170 +1,185 @@
 import os
+import re
 import sys
+import json
+import time
 import asyncio
-import aiohttp
+import requests
+import subprocess
+
+import core as helper
+from utils import progress_bar
+from vars import API_ID, API_HASH, BOT_TOKEN
+from aiohttp import ClientSession
+from pyromod import listen
+from subprocess import getstatusoutput
+
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.errors import FloodWait, Timeout
+from pyrogram.errors import FloodWait
+from pyrogram.errors.exceptions.bad_request_400 import StickerEmojiInvalid
+from pyrogram.types.messages_and_media import message
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# Configuration - Replace with your actual credentials
-API_ID = 22696222
-API_HASH = "1b4cdb255f37262200981dbbf87a1fa0"
-BOT_TOKEN = "7897731857:AAG6GtiqGXlxn3NPVwlSJL713wlTFSnIwW8"
-MAX_FILE_SIZE = 2000 * 1024 * 1024  # 2GB
 
 bot = Client(
     "bot",
     api_id=API_ID,
     api_hash=API_HASH,
-    bot_token=BOT_TOKEN
-)
+    bot_token=BOT_TOKEN)
 
-async def run_command(command):
-    """Execute shell commands asynchronously"""
-    process = await asyncio.create_subprocess_shell(
-        command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-    stdout, stderr = await process.communicate()
-    return stdout.decode(), stderr.decode(), process.returncode
-
-async def download_hls(url: str, output_name: str):
-    """Download HLS stream with optimized parameters"""
-    cmd = (
-        f'yt-dlp -o "{output_name}" '
-        f'--hls-use-mpegts --no-check-certificate '
-        f'--referer "https://vz-b84dcfa8-0db.b-cdn.net/" '
-        f'--add-header "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" '
-        f'--concurrent-fragments 4 --buffer-size 16K "{url}"'
-    )
-    return await run_command(cmd)
-
-async def safe_delete(file_path: str):
-    """Safely delete files with error handling"""
-    try:
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-    except Exception as e:
-        print(f"Error deleting file: {e}")
 
 @bot.on_message(filters.command(["start"]))
-async def start_handler(client: Client, message: Message):
-    await message.reply_text(
-        f"<b>Hello {message.from_user.mention} 👋\n\n"
-        "I can download videos (including HLS streams) and PDFs!\n\n"
-        "Use /upload to begin\n"
-        "Max file size: 2GB</b>"
-    )
+async def start(bot: Client, m: Message):
+    await m.reply_text(f"<b>Hello {m.from_user.mention} 👋\n\n I Am A Bot For Download Links From Your **.TXT** File And Then Upload That File On Telegram So Basically If You Want To Use Me First Send Me /upload Command And Then Follow Few Steps..\n\nUse /stop to stop any ongoing task.</b>")
+
 
 @bot.on_message(filters.command("stop"))
-async def stop_handler(client: Client, message: Message):
-    await message.reply_text("🚦 Operation Stopped")
+async def restart_handler(_, m):
+    await m.reply_text("**Stopped**🚦", True)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
+
 @bot.on_message(filters.command(["upload"]))
-async def upload_handler(client: Client, message: Message):
-    video_name = None
-    pdf_name = None
+async def upload(bot: Client, m: Message):
+    editable = await m.reply_text('𝕤ᴇɴᴅ ᴛxᴛ ғɪʟᴇ ⚡️')
+    input: Message = await bot.listen(editable.chat.id)
+    x = await input.download()
+    await input.delete(True)
+
+    path = f"./downloads/{m.chat.id}"
+
     try:
-        # Step 1: Get video URL
-        prompt = await message.reply_text("📥 Send video URL (HLS/M3U8 supported) or /skip")
-        video_msg = await client.listen(chat_id=message.chat.id, filters=filters.text, timeout=300)
-        video_url = None if video_msg.text.lower() == "/skip" else video_msg.text.strip()
-        await prompt.delete()
-        await video_msg.delete()
+       with open(x, "r") as f:
+           content = f.read()
+       content = content.split("\n")
+       links = []
+       for i in content:
+           if "Video URL:" in i or "PDF URL:" in i or "Class Sheets PDF:" in i or "Reading List:" in i:
+               links.append(i.split(":", 1)[1].strip())
+       os.remove(x)
+    except:
+           await m.reply_text("**Invalid file input.**")
+           os.remove(x)
+           return
+    
+   
+    await editable.edit(f"**𝕋ᴏᴛᴀʟ ʟɪɴᴋ𝕤 ғᴏᴜɴᴅ ᴀʀᴇ🔗🔗** **{len(links)}**\n\n**𝕊ᴇɴᴅ 𝔽ʀᴏᴍ ᴡʜᴇʀᴇ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴɪᴛɪᴀʟ ɪ𝕤** **1**")
+    input0: Message = await bot.listen(editable.chat.id)
+    raw_text = input0.text
+    await input0.delete(True)
 
-        # Step 2: Get PDF URL
-        prompt = await message.reply_text("📄 Send PDF URL or /skip")
-        pdf_msg = await client.listen(chat_id=message.chat.id, filters=filters.text, timeout=300)
-        pdf_url = None if pdf_msg.text.lower() == "/skip" else pdf_msg.text.strip()
-        await prompt.delete()
-        await pdf_msg.delete()
+    await editable.edit("**Now Please Send Me Your Batch Name**")
+    input1: Message = await bot.listen(editable.chat.id)
+    raw_text0 = input1.text
+    await input1.delete(True)
+    
 
-        # Step 3: Get batch name
-        prompt = await message.reply_text("🏷️ Send batch name (e.g., Batch-1)")
-        batch_msg = await client.listen(chat_id=message.chat.id, filters=filters.text, timeout=300)
-        batch_name = batch_msg.text.strip().replace(" ", "_")
-        await prompt.delete()
-        await batch_msg.delete()
+    await editable.edit("**𝔼ɴᴛᴇʀ ʀᴇ𝕤ᴏʟᴜᴛɪᴏɴ📸**\n144,240,360,480,720,1080 please choose quality")
+    input2: Message = await bot.listen(editable.chat.id)
+    raw_text2 = input2.text
+    await input2.delete(True)
+    try:
+        if raw_text2 == "144":
+            res = "256x144"
+        elif raw_text2 == "240":
+            res = "426x240"
+        elif raw_text2 == "360":
+            res = "640x360"
+        elif raw_text2 == "480":
+            res = "854x480"
+        elif raw_text2 == "720":
+            res = "1280x720"
+        elif raw_text2 == "1080":
+            res = "1920x1080" 
+        else: 
+            res = "UN"
+    except Exception:
+            res = "UN"
+    
+    
 
-        if not (video_url or pdf_url):
-            await message.reply_text("❌ Please provide at least one URL!")
-            return
+    await editable.edit("Now Enter A Caption to add caption on your uploaded file")
+    input3: Message = await bot.listen(editable.chat.id)
+    raw_text3 = input3.text
+    await input3.delete(True)
+    highlighter  = f"️ ⁪⁬⁮⁮⁮"
+    if raw_text3 == 'Robin':
+        MR = highlighter 
+    else:
+        MR = raw_text3
+   
+    await editable.edit("Now send the Thumb url/nEg » https://graph.org/file/ce1723991756e48c35aa1.jpg \n Or if don't want thumbnail send = no")
+    input6 = message = await bot.listen(editable.chat.id)
+    raw_text6 = input6.text
+    await input6.delete(True)
+    await editable.delete()
 
-        # Process Video
-        if video_url:
-            video_name = f"{batch_name}_video.mp4"
-            msg = await message.reply_text(f"⏬ Downloading video...\nURL: {video_url[:50]}...")
+    thumb = input6.text
+    if thumb.startswith("http://") or thumb.startswith("https://"):
+        getstatusoutput(f"wget '{thumb}' -O 'thumb.jpg'")
+        thumb = "thumb.jpg"
+    else:
+        thumb == "no"
 
-            stdout, stderr, returncode = await download_hls(video_url, video_name)
-            
-            if returncode != 0 or not os.path.exists(video_name):
-                await msg.edit_text(f"❌ Video download failed!\nError: {stderr[:300]}")
-                await safe_delete(video_name)
-                return
+    if len(links) == 1:
+        count = 1
+    else:
+        count = int(raw_text)
 
-            file_size = os.path.getsize(video_name)
-            if file_size > MAX_FILE_SIZE:
-                await msg.edit_text(f"❌ File too large ({file_size//1024//1024}MB > 2000MB)")
-                await safe_delete(video_name)
-                return
+    try:
+        for i in range(count - 1, len(links)):
 
-            await msg.edit_text("📤 Uploading video...")
-            await client.send_video(
-                chat_id=message.chat.id,
-                video=video_name,
-                caption=f"🎥 {batch_name}",
-                supports_streaming=True,
-                progress=lambda c, t: asyncio.create_task(
-                    msg.edit_text(f"📤 Uploading video... {c*100/t:.1f}%")
-                )
-            )
-            await safe_delete(video_name)
-            video_name = None  # Mark as cleaned up
+            url = links[i]
 
-        # Process PDF
-        if pdf_url:
-            pdf_name = f"{batch_name}.pdf"
-            msg = await message.reply_text(f"⏬ Downloading PDF...\nURL: {pdf_url[:50]}...")
-            
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(pdf_url) as response:
-                        if response.status == 200:
-                            with open(pdf_name, "wb") as f:
-                                async for chunk in response.content.iter_chunked(1024*1024):
-                                    f.write(chunk)
-                        else:
-                            raise Exception(f"HTTP Error {response.status}")
-            except Exception as e:
-                await msg.edit_text(f"❌ PDF download failed!\nError: {str(e)}")
-                await safe_delete(pdf_name)
-                return
+            if "Video URL:" in url:
+                url = url.replace("Video URL:", "").strip()
+                name1 = "Video_" + str(count)
+                name = f'{str(count).zfill(3)}) {name1[:60]}'
+                ytf = f"b[height<={raw_text2}]/bv[height<={raw_text2}]+ba/b/bv+ba"
+                cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
+                cc = f'**[📽️] Vid_ID:** {str(count).zfill(3)}.** {name1}{MR}.mp4\n**𝔹ᴀᴛᴄʜ** » **{raw_text0}**'
+                Show = f"**⥥ 🄳🄾🅆🄽🄻🄾🄰🄳🄸🄽🄶⬇️⬇️... »**\n\n**📝Name »** `{name}\n❄Quality » {raw_text2}`\n\n**🔗URL »** `{url}`"
+                prog = await m.reply_text(Show)
+                res_file = await helper.download_video(url, cmd, name)
+                filename = res_file
+                await prog.delete(True)
+                await helper.send_vid(bot, m, cc, filename, thumb, name, prog)
+                count += 1
+                time.sleep(1)
 
-            await msg.edit_text("📤 Uploading PDF...")
-            await client.send_document(
-                chat_id=message.chat.id,
-                document=pdf_name,
-                caption=f"📄 {batch_name}",
-                progress=lambda c, t: asyncio.create_task(
-                    msg.edit_text(f"📤 Uploading PDF... {c*100/t:.1f}%")
-                )
-            )
-            await safe_delete(pdf_name)
-            pdf_name = None  # Mark as cleaned up
+            elif "PDF URL:" in url or "Class Sheets PDF:" in url or "Reading List:" in url:
+                url = url.replace("PDF URL:", "").replace("Class Sheets PDF:", "").replace("Reading List:", "").strip()
+                name1 = "PDF_" + str(count)
+                name = f'{str(count).zfill(3)}) {name1[:60]}'
+                cc1 = f'**[📁] Pdf_ID:** {str(count).zfill(3)}. {name1}{MR}.pdf \n**𝔹ᴀᴛᴄʜ** » **{raw_text0}**'
+                if "drive" in url:
+                    try:
+                        ka = await helper.download(url, name)
+                        copy = await bot.send_document(chat_id=m.chat.id,document=ka, caption=cc1)
+                        count+=1
+                        os.remove(ka)
+                        time.sleep(1)
+                    except FloodWait as e:
+                        await m.reply_text(str(e))
+                        time.sleep(e.x)
+                        continue
+                else:
+                    try:
+                        cmd = f'yt-dlp -o "{name}.pdf" "{url}"'
+                        download_cmd = f"{cmd} -R 25 --fragment-retries 25"
+                        os.system(download_cmd)
+                        copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                        count += 1
+                        os.remove(f'{name}.pdf')
+                    except FloodWait as e:
+                        await m.reply_text(str(e))
+                        time.sleep(e.x)
+                        continue
 
-        await message.reply_text("✅ All files processed successfully! 🚀")
-
-    except Timeout:
-        await message.reply_text("⌛ Operation timed out after 5 minutes")
     except Exception as e:
-        await message.reply_text(f"❌ Critical error: {str(e)}")
-    finally:
-        # Final cleanup with null checks
-        await safe_delete(video_name)
-        await safe_delete(pdf_name)
+        await m.reply_text(e)
+    await m.reply_text("**𝔻ᴏɴᴇ 𝔹ᴏ𝕤𝕤😎**")
 
-if __name__ == "__main__":
-    print("⚡ Bot Started!")
-    bot.run()
+
+bot.run()
