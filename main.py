@@ -133,8 +133,8 @@ async def upload(bot: Client, m: Message):
                 name1 = f"Video_{str(count).zfill(3)}"
                 name = f'{str(count).zfill(3)}) {name1[:60]}'
                 ytf = f"b[height<={raw_text2}]/bv[height<={raw_text2}]+ba/b/bv+ba"
-                cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
-                cc = f'**[📽️] Vid_ID:** {str(count).zfill(3)}.** {name1}{MR}.mp4\n**𝔹ᴀᴛᴄʜ** » **{raw_text0}**'
+                cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mkv"'  # Changed to .mkv
+                cc = f'**[📽️] Vid_ID:** {str(count).zfill(3)}.** {name1}{MR}.mkv\n**𝔹ᴀᴛᴄʜ** » **{raw_text0}**'
                 Show = f"**⥥ 🄳🄾🅆🄽🄻🄾🄰🄳🄸🄽🄶⬇️⬇️... »**\n\n**📝Name »** `{name}\n❄Quality » {raw_text2}`\n\n**🔗URL »** `{url}`"
                 prog = await m.reply_text(Show)
                 res_file = await helper.download_video(url, cmd, name)
